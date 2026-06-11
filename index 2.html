@@ -333,6 +333,10 @@ const PEZZI_SVG = [
   let pezzoIndex = 0;
   let pezzi = [];
   const MAX_PEZZI = 200;
+  let accumuloY = 1920;
+  let tuboRunning = true;
+  let tuboStartTime = Date.now();
+  const TUBO_MAX_DURATION = 5000;
   const TUBO_ORIGIN = { x: 540, y: 1485 };
   const TUBO_SPAWN = { x: 539, y: 1452 };
   const pezziContainer = document.getElementById('pezzi-container');
@@ -409,76 +413,78 @@ const PEZZI_SVG = [
     }
 
     // --- INIZIO LOGICA TUBO ---
-    if (tuboGroup && pezziContainer) {
-      let cycleDuration = 2000 - (velocitaTubo - 10) * 20;
-      let dt = 16.7;
-      tTubo += dt;
+    if (tuboGroup && pezziContainer && tuboRunning) {
+      let elapsed = Date.now() - tuboStartTime;
+      if (elapsed >= TUBO_MAX_DURATION) {
+        tuboRunning = false;
+        tuboGroup.setAttribute('transform', '');
+      } else {
+        let cycleDuration = 2000 - (velocitaTubo - 10) * 20;
+        let dt = 16.7;
+        tTubo += dt;
 
-      let chargeDur = cycleDuration * 0.40;
-      let fireDur = cycleDuration * 0.10;
-      let cooldownDur = cycleDuration * 0.50;
+        let chargeDur = cycleDuration * 0.40;
+        let fireDur = cycleDuration * 0.10;
+        let cooldownDur = cycleDuration * 0.50;
 
-      if (tuboState === 0 && tTubo >= 0) {
-        tuboState = 1;
-        tTubo = 0;
-      } else if (tuboState === 1 && tTubo >= chargeDur) {
-        tuboState = 2;
-        tTubo = 0;
+        if (tuboState === 0 && tTubo >= 0) {
+          tuboState = 1;
+          tTubo = 0;
+        } else if (tuboState === 1 && tTubo >= chargeDur) {
+          tuboState = 2;
+          tTubo = 0;
 
-        // SPAWN PEZZO
-        let svgData = PEZZI_SVG[pezzoIndex];
-        pezzoIndex = (pezzoIndex + 1) % PEZZI_SVG.length;
+          // SPAWN PEZZO
+          let svgData = PEZZI_SVG[pezzoIndex];
+          pezzoIndex = (pezzoIndex + 1) % PEZZI_SVG.length;
 
-        let g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-        g.innerHTML = svgData.paths;
-        g.setAttribute('style', 'pointer-events: none;');
-        pezziContainer.appendChild(g);
+          let g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+          g.innerHTML = svgData.paths;
+          g.setAttribute('style', 'pointer-events: none;');
+          pezziContainer.appendChild(g);
 
-        let vb = svgData.viewBox.split(' ').map(Number);
-        let vbW = vb[2], vbH = vb[3];
-        let scale = 0.25;
+          let vb = svgData.viewBox.split(' ').map(Number);
+          let vbW = vb[2], vbH = vb[3];
+          let scale = 0.25;
 
-        let pezzo = {
-          el: g,
-          x: TUBO_SPAWN.x + (Math.random() - 0.5) * 10,
-          y: TUBO_SPAWN.y,
-          vx: (Math.random() - 0.5) * 6,
-          vy: -6 - (intensitaTubo * 0.14),
-          rotation: Math.random() * 30 - 15,
-          vRot: Math.random() * 10 - 5,
-          landed: false,
-          vbW: vbW,
-          vbH: vbH,
-          scale: scale
-        };
-        pezzi.push(pezzo);
+          let pezzo = {
+            el: g,
+            x: TUBO_SPAWN.x + (Math.random() - 0.5) * 10,
+            y: TUBO_SPAWN.y,
+            vx: (Math.random() - 0.5) * 6,
+            vy: -6 - (intensitaTubo * 0.14),
+            rotation: Math.random() * 30 - 15,
+            vRot: Math.random() * 10 - 5,
+            landed: false,
+            vbW: vbW,
+            vbH: vbH,
+            scale: scale,
+            h: vbH * scale
+          };
+          pezzi.push(pezzo);
 
-        if (pezzi.length > MAX_PEZZI) {
-          let old = pezzi.shift();
-          if (old.el.parentNode) old.el.parentNode.removeChild(old.el);
+        } else if (tuboState === 2 && tTubo >= fireDur) {
+          tuboState = 3;
+          tTubo = 0;
+        } else if (tuboState === 3 && tTubo >= cooldownDur) {
+          tuboState = 1;
+          tTubo = 0;
         }
 
-      } else if (tuboState === 2 && tTubo >= fireDur) {
-        tuboState = 3;
-        tTubo = 0;
-      } else if (tuboState === 3 && tTubo >= cooldownDur) {
-        tuboState = 1;
-        tTubo = 0;
+        let scaleX = 1, scaleY = 1;
+        if (tuboState === 1) {
+          let p = Math.min(1, tTubo / chargeDur);
+          scaleX = 1 - p * 0.05;
+          scaleY = 1 + p * 0.15;
+        } else if (tuboState === 2) {
+          let p = Math.min(1, tTubo / fireDur);
+          scaleX = 0.95 + p * 0.10;
+          scaleY = 1.15 - p * 0.30;
+        }
+        tuboGroup.setAttribute('transform',
+          `translate(${TUBO_ORIGIN.x},${TUBO_ORIGIN.y}) scale(${scaleX},${scaleY}) translate(${-TUBO_ORIGIN.x},${-TUBO_ORIGIN.y})`
+        );
       }
-
-      let scaleX = 1, scaleY = 1;
-      if (tuboState === 1) {
-        let p = Math.min(1, tTubo / chargeDur);
-        scaleX = 1 - p * 0.05;
-        scaleY = 1 + p * 0.15;
-      } else if (tuboState === 2) {
-        let p = Math.min(1, tTubo / fireDur);
-        scaleX = 0.95 + p * 0.10;
-        scaleY = 1.15 - p * 0.30;
-      }
-      tuboGroup.setAttribute('transform',
-        `translate(${TUBO_ORIGIN.x},${TUBO_ORIGIN.y}) scale(${scaleX},${scaleY}) translate(${-TUBO_ORIGIN.x},${-TUBO_ORIGIN.y})`
-      );
     }
     // --- FINE LOGICA TUBO ---
 
@@ -493,14 +499,18 @@ const PEZZI_SVG = [
       p.rotation += p.vRot;
       p.vx *= 0.995;
 
-      let yTarget = 1550 + Math.random() * 370;
-      if (p.y >= yTarget) {
-        p.y = yTarget;
+      // Atterraggio: accumulo dal basso verso l'alto
+      if (p.y >= accumuloY) {
+        p.y = accumuloY;
         p.landed = true;
         p.vx = 0;
         p.vy = 0;
         p.vRot = 0;
         p.rotation += Math.random() * 30 - 15;
+
+        // Salgo lo strato per il prossimo pezzo
+        accumuloY -= p.h * 0.6; // 0.6 per sovrapposizione leggera
+        if (accumuloY < -200) accumuloY = -200; // copre tutta la tavola
       }
 
       let cx = p.vbW / 2;
