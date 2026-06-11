@@ -17,6 +17,10 @@
   #forno-pulse {
     transform-origin: 540px 1480px;
   }
+  #Tubo {
+    transform-box: fill-box;
+    transform-origin: center top;
+  }
   .control-panel {
     position: fixed; top: 50%; right: 40px; transform: translateY(-50%);
     background: rgba(255,255,255,0.9); backdrop-filter: blur(12px);
@@ -329,6 +333,24 @@
     requestAnimationFrame(update);
   }
   requestAnimationFrame(update);
+</script>
+<script type="module">
+  import { createTimeline } from 'https://esm.sh/animejs@4';
+
+  const tubo = document.getElementById('Tubo');
+  if (tubo) {
+    createTimeline({ loop: true })
+      .add(tubo, {
+        scaleY: { from: 1, to: 1.35 },
+        duration: 900,
+        ease: 'outElastic(1, .6)',
+      })
+      .add(tubo, {
+        scaleY: { to: 1 },
+        duration: 800,
+        ease: 'outElastic(1, .6)',
+      });
+  }
 </script>
 </body>
 </html>
